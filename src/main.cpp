@@ -232,7 +232,7 @@ public:
 	void initProg(const std::string& resourceDir)
 	{
 		GLSL::checkVersion();
-		glClearColor(0.3f, 0.5f, 0.65f, 0.0f);
+		glClearColor(0.55f, 0.2f, 0.7f, 0.0f);
 		glEnable(GL_DEPTH_TEST);
 		glBlendColor(1,1,1,1);
 

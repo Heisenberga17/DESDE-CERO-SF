@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.7)
+cmake_minimum_required(VERSION 3.5)
 
 # Name of the project
 project(starfox64)
@@ -12,6 +12,7 @@ file(GLOB_RECURSE HEADERS "src/*.h" "ext/glad/*/*.h")
 file(GLOB_RECURSE GLSL "shaders/*.glsl")
 
 include_directories("ext/glad/include")
+include_directories("/opt/homebrew/include")
 
 # Set the executable.
 add_executable(${CMAKE_PROJECT_NAME} ${SOURCES} ${HEADERS} ${GLSL})
