@@ -277,7 +277,7 @@ public:
 
 	void startNewWave() {
 		waveNumber++;
-		enemiesLeftInWave = 3 + 2 * waveNumber;
+		enemiesLeftInWave = 2 + waveNumber;
 		waveActive = true;
 		waveSpawnTimer = glfwGetTime();
 	}
@@ -394,8 +394,7 @@ public:
 		// ENVIRONMENT
 		environment->draw(programs["texture"], P, M, V, lightPos);
 
-		// RINGS (3D, in world space)
-		environment->drawRings(programs["simple_color"], P, M, V);
+		// RINGS disabled
 
 		// ENEMIES
 		enemy->draw(programs["texture"], programs["explosion"], P, M, V, lightPos);
@@ -445,21 +444,12 @@ public:
 					}
 				}
 			} else if (!waveActive) {
-				if (now - waveCooldownTimer >= 5.0) {
+				if (now - waveCooldownTimer >= 8.0) {
 					startNewWave();
 				}
 			}
 
-			// RING SPAWNING
-			if (now - ringSpawnTimer >= 15.0) {
-				ringSpawnTimer = now;
-				environment->spawnRing();
-			}
-
-			// RING COLLECTION
-			if (arwing->isAlive && environment->checkRingCollision(arwing->position, ARWING_HIT_RADIUS)) {
-				arwing->health = std::min(arwing->health + 3, ARWING_MAX_HEALTH);
-			}
+			// RINGS disabled
 
 			// ARWING ADVANCE
 			arwing->advance();
@@ -493,8 +483,6 @@ public:
 		}
 		M->pushMatrix();
 			glDisable(GL_DEPTH_TEST);
-			interface->draw(programs["simple_color"], P, M, V, arwing->health, hitCount);
-			interface->drawLives(programs["simple_color"], P, M, V, lives);
 			interface->drawDamageFlash(programs["simple_color"], P, M, V);
 			if (gameState == GAME_OVER) {
 				interface->drawGameOver(programs["simple_color"], P, M, V);
