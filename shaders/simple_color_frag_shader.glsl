@@ -1,9 +1,11 @@
 #version 330 core
 
 in vec3 fragCol;
-out vec3 color;
+out vec4 color;
+
+uniform float alpha;
 
 void main()
 {
-        color = fragCol;
+        color = vec4(fragCol, alpha);
 }

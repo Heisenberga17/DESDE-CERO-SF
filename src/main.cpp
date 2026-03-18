@@ -30,6 +30,8 @@
 
 #define PI 3.14159
 
+enum GameState { PLAYING, GAME_OVER };
+
 class Application : public EventCallbacks
 {
 
@@ -41,9 +43,21 @@ public:
 	std::map<std::string, GLuint> textures;
 
 	// Game
-	clock_t spawnTimer;
+	double spawnTimer = 0.0;
 	bool paused = false;
 	unsigned hitCount = 0;
+	GameState gameState = PLAYING;
+	int lives = 3;
+
+	// Wave system
+	int waveNumber = 0;
+	int enemiesLeftInWave = 0;
+	double waveSpawnTimer = 0.0;
+	double waveCooldownTimer = 0.0;
+	bool waveActive = false;
+
+	// Ring spawn timer
+	double ringSpawnTimer = 0.0;
 
 	// Camera
 	bool cameraUnlock = false;
@@ -76,6 +90,10 @@ public:
 			paused = !paused;
 		}
 
+		// Restart
+		if (key == GLFW_KEY_R && action == GLFW_PRESS && gameState == GAME_OVER) {
+			restartGame();
+		}
 
 		if (key == GLFW_KEY_U && action == GLFW_PRESS) {
 			if (cameraUnlock) {
@@ -122,6 +140,8 @@ public:
 			}
 		}
 
+		if (gameState == GAME_OVER) return;
+
 		// Arwing Controls
 		if (key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
 			arwing->yawLeft(KEY_PRESS);
@@ -164,6 +184,20 @@ public:
 		}
 		if (key == GLFW_KEY_B && action == GLFW_PRESS) {
 			arwing->barrelRoll();
+		}
+
+		// Boost & Brake
+		if (key == GLFW_KEY_LEFT_SHIFT && action == GLFW_PRESS) {
+			arwing->speedMultiplier = 2.0f;
+		}
+		if (key == GLFW_KEY_LEFT_SHIFT && action == GLFW_RELEASE) {
+			arwing->speedMultiplier = 1.0f;
+		}
+		if (key == GLFW_KEY_LEFT_CONTROL && action == GLFW_PRESS) {
+			arwing->speedMultiplier = 0.3f;
+		}
+		if (key == GLFW_KEY_LEFT_CONTROL && action == GLFW_RELEASE) {
+			arwing->speedMultiplier = 1.0f;
 		}
 	}
 
@@ -214,7 +248,6 @@ public:
 		enemy->measure();
 
 		environment = std::make_shared<Environment>(basePath);
-		//environment->measure();
 
 		interface = std::make_shared<Interface>(ARWING_MAX_HEALTH);
 	}
@@ -225,8 +258,28 @@ public:
 
 	void initGame()
 	{
-		spawnTimer = clock()/10000.0; // start spawn timer
-		//std::cout << "Time: " << spawnTimer << std::endl;
+		spawnTimer = glfwGetTime();
+		ringSpawnTimer = glfwGetTime();
+		startNewWave();
+	}
+
+	void restartGame() {
+		gameState = PLAYING;
+		lives = 3;
+		hitCount = 0;
+		waveNumber = 0;
+		arwing->reset();
+		enemy->clearAll();
+		spawnTimer = glfwGetTime();
+		ringSpawnTimer = glfwGetTime();
+		startNewWave();
+	}
+
+	void startNewWave() {
+		waveNumber++;
+		enemiesLeftInWave = 3 + 2 * waveNumber;
+		waveActive = true;
+		waveSpawnTimer = glfwGetTime();
 	}
 
 	void initProg(const std::string& resourceDir)
@@ -288,6 +341,7 @@ public:
 		programs["simple_color"]->addUniform("P");
 		programs["simple_color"]->addUniform("V");
 		programs["simple_color"]->addUniform("M");
+		programs["simple_color"]->addUniform("alpha");
 		programs["simple_color"]->addAttribute("vertPos");
 		programs["simple_color"]->addAttribute("vertCol");
 
@@ -304,9 +358,6 @@ public:
 
 	void render()
 	{
-		if (paused) {
-			return;
-		}
 		int width, height;
 		glfwGetFramebufferSize(windowManager->getHandle(), &width, &height);
 		float aspect = width/(float)height;
@@ -342,53 +393,115 @@ public:
 
 		// ENVIRONMENT
 		environment->draw(programs["texture"], P, M, V, lightPos);
-		environment->advance();
+
+		// RINGS (3D, in world space)
+		environment->drawRings(programs["simple_color"], P, M, V);
 
 		// ENEMIES
 		enemy->draw(programs["texture"], programs["explosion"], P, M, V, lightPos);
-		if (enemy->checkCollisions(arwing->position, ARWING_HIT_RADIUS)) {
-			std::cout << "Arwing collided with an enenemy!" << std::endl;
-		}
-		for (auto p = arwing->projectiles.begin(); p != arwing->projectiles.end(); ++p) {
-			std::vector<std::shared_ptr<EnemyUnit>> enemiesHit = enemy->checkProjectile((*p)->position, ARWING_PROJECTILE_HIT_RADIUS);
-			for (auto e = enemiesHit.begin(); e != enemiesHit.end(); ++e) {
-				++hitCount;
-				(*e)->explode();
-				std::cout << "Enemies hit: " << hitCount << std::endl;
-			}
-		}
-		enemy->advance();
-
-		// SPAWN ENEMY
-		float t = clock()/10000.0 - spawnTimer;
-		if (t >= ENEMY_SPAWN_CD) {
-			spawnTimer = clock()/10000.0;
-			enemy->spawnEnemy();
-		}
+		enemy->drawProjectiles(programs["texture"], P, M, V, lightPos);
 
 		// ARWING
 		arwing->draw(programs["texture"], programs["exhaust"], programs["crosshair"], P, M, V, lightPos);
-		arwing->advance();
 
 		P->popMatrix();
 
-		// INTERFACE
-		// @TODO :P
-		/*
+		if (!paused && gameState == PLAYING) {
+			// ADVANCE ENVIRONMENT
+			environment->advance(arwing->speedMultiplier);
+
+			// ENEMY COLLISIONS & ADVANCE
+			if (arwing->isAlive && enemy->checkCollisions(arwing->position, ARWING_HIT_RADIUS)) {
+				arwing->takeDamage(1);
+				interface->triggerDamageFlash();
+			}
+
+			// Enemy projectile collision
+			if (arwing->isAlive && enemy->checkEnemyProjectileCollision(arwing->position, ARWING_HIT_RADIUS)) {
+				arwing->takeDamage(1);
+				interface->triggerDamageFlash();
+			}
+
+			for (auto p = arwing->projectiles.begin(); p != arwing->projectiles.end(); ++p) {
+				std::vector<std::shared_ptr<EnemyUnit>> enemiesHit = enemy->checkProjectile((*p)->position, ARWING_PROJECTILE_HIT_RADIUS);
+				for (auto e = enemiesHit.begin(); e != enemiesHit.end(); ++e) {
+					++hitCount;
+					(*e)->explode();
+				}
+			}
+			enemy->advance(arwing->position);
+
+			// WAVE SPAWNING
+			double now = glfwGetTime();
+			if (waveActive && enemiesLeftInWave > 0) {
+				if (now - waveSpawnTimer >= 0.5) {
+					waveSpawnTimer = now;
+					float speedScale = 1.0f + 0.1f * waveNumber;
+					enemy->spawnEnemy(speedScale);
+					enemiesLeftInWave--;
+					if (enemiesLeftInWave <= 0) {
+						waveActive = false;
+						waveCooldownTimer = now;
+					}
+				}
+			} else if (!waveActive) {
+				if (now - waveCooldownTimer >= 5.0) {
+					startNewWave();
+				}
+			}
+
+			// RING SPAWNING
+			if (now - ringSpawnTimer >= 15.0) {
+				ringSpawnTimer = now;
+				environment->spawnRing();
+			}
+
+			// RING COLLECTION
+			if (arwing->isAlive && environment->checkRingCollision(arwing->position, ARWING_HIT_RADIUS)) {
+				arwing->health = std::min(arwing->health + 3, ARWING_MAX_HEALTH);
+			}
+
+			// ARWING ADVANCE
+			arwing->advance();
+
+			// GROUND COLLISION
+			if (arwing->isAlive && environment->checkGroundCollision(arwing->position, ARWING_HIT_RADIUS)) {
+				arwing->takeDamage(1);
+				interface->triggerDamageFlash();
+			}
+
+			// CHECK DEATH
+			if (!arwing->isAlive) {
+				lives--;
+				if (lives > 0) {
+					arwing->reset();
+				} else {
+					gameState = GAME_OVER;
+				}
+			}
+
+			// INTERFACE ADVANCE
+			interface->advance();
+		}
+
+		// INTERFACE (HUD) - always render, even when paused
 		P->pushMatrix();
 		if (width > height) {
 			P->ortho(-1*aspect, 1*aspect, -1, 1, -2, 100.0f);
 		} else {
 			P->ortho(-1, 1, -1*1/aspect, 1*1/aspect, -2, 100.0f);
 		}
-
 		M->pushMatrix();
-			//M->translate(glm::vec3(arwing->position.x, arwing->position.y, arwing->position.z));
-			interface->draw(programs["simple_color"], P, M, V, ARWING_MAX_HEALTH);
+			glDisable(GL_DEPTH_TEST);
+			interface->draw(programs["simple_color"], P, M, V, arwing->health, hitCount);
+			interface->drawLives(programs["simple_color"], P, M, V, lives);
+			interface->drawDamageFlash(programs["simple_color"], P, M, V);
+			if (gameState == GAME_OVER) {
+				interface->drawGameOver(programs["simple_color"], P, M, V);
+			}
+			glEnable(GL_DEPTH_TEST);
 		M->popMatrix();
-
 		P->popMatrix();
-		*/
 	}
 
 };

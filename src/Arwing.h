@@ -91,11 +91,19 @@ public:
 
     void shoot();
 
+    void takeDamage(int amount);
+    bool isInvincible() const;
+    void reset();
+
     std::vector<std::shared_ptr<Projectile>> projectiles;
 	glm::vec3 position = glm::vec3(0.0, 0.0, ARWING_DEPTH);
 	double yaw = 0.0;
 	double pitch = 0.0;
     double roll = 0.0;
+
+    int health = ARWING_MAX_HEALTH;
+    bool isAlive = true;
+    float speedMultiplier = 1.0f;
 
 private:
     Arwing(Arwing const &a) = delete;
@@ -111,7 +119,6 @@ private:
     float projectileScale;
 
     std::shared_ptr<Shape> crosshairShape;
-    //float exhaustTime = 0.0;
 
     int yawing = NOT_YAWING;
     int pitching = NOT_PITCHING;
@@ -120,8 +127,9 @@ private:
     bool barrelRollState = false;
     double barrelRollAmnt = 0.0;
 
-
-    //int state = ARWING_NORMAL;
+    int state = ARWING_NORMAL;
+    float invincibilityTimer = 0.0f;
+    int blinkCounter = 0;
 
  };
 

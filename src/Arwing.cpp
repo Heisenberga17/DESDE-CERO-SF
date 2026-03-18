@@ -100,12 +100,54 @@ void Arwing::measure() {
     projectileScale = 1;
 }
 
+void Arwing::takeDamage(int amount) {
+    if (invincibilityTimer > 0 || !isAlive) return;
+    health -= amount;
+    if (health <= 0) {
+        health = 0;
+        isAlive = false;
+    }
+    invincibilityTimer = 90.0f;
+    state = ARWING_DAMAGED;
+}
+
+bool Arwing::isInvincible() const {
+    return invincibilityTimer > 0;
+}
+
+void Arwing::reset() {
+    health = ARWING_MAX_HEALTH;
+    isAlive = true;
+    position = glm::vec3(0.0, 0.0, ARWING_DEPTH);
+    yaw = 0.0;
+    pitch = 0.0;
+    roll = 0.0;
+    invincibilityTimer = 0.0f;
+    state = ARWING_NORMAL;
+    blinkCounter = 0;
+    speedMultiplier = 1.0f;
+    projectiles.clear();
+    yawing = NOT_YAWING;
+    pitching = NOT_PITCHING;
+    rolling = NOT_ROLLING;
+    barrelRollState = false;
+    barrelRollAmnt = 0.0;
+}
+
 void Arwing::draw(const std::shared_ptr<Program> textureProg, const std::shared_ptr<Program> exhaustProg,
                   const std::shared_ptr<Program> crosshairProg, const std::shared_ptr<MatrixStack> P,
                   const std::shared_ptr<MatrixStack> M, const glm::mat4& V, const glm::vec3& lightPos)
 {
+    // Blink ship when damaged (skip draw every 3rd frame)
+    bool drawShip = true;
+    if (state == ARWING_DAMAGED) {
+        blinkCounter++;
+        if (blinkCounter % 3 == 0) drawShip = false;
+    }
+
     textureProg->bind();
     // Draw Ship
+    if (drawShip && isAlive) {
 	M->pushMatrix();
 		M->translate(glm::vec3(position.x, position.y, position.z));
 		M->rotate(glm::radians(pitch), glm::vec3(1, 0, 0));
@@ -144,6 +186,7 @@ void Arwing::draw(const std::shared_ptr<Program> textureProg, const std::shared_
         M->popMatrix();
         exhaustProg->unbind();
     M->popMatrix();
+    } // end if (drawShip && isAlive)
 
     // Draw Projctiles
     textureProg->bind();
@@ -265,6 +308,18 @@ void Arwing::barrelRoll() {
 }
 
 void Arwing::advance() {
+    if (!isAlive) return;
+
+    // Invincibility timer
+    if (invincibilityTimer > 0) {
+        invincibilityTimer -= 1.0f;
+        if (invincibilityTimer <= 0) {
+            invincibilityTimer = 0;
+            state = ARWING_NORMAL;
+            blinkCounter = 0;
+        }
+    }
+
     switch(yawing) {
     case NOT_YAWING:
         yaw = yaw < 0 ?

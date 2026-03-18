@@ -16,7 +16,7 @@
 #define GRAVITY 0.2
 #define WIND_RESISTANCE 0.1
 
-#define ENEMY_SPAWN_CD 60.0
+#define ENEMY_SPAWN_CD 3.0
 
 #define ENEMY_SCALE 3.0
 #define ENEMY_HIT_RADIUS 3.0
@@ -39,6 +39,30 @@
 #define ENEMY_STATE_NORMAL 0
 #define ENEMY_STATE_DEAD 1
 #define ENEMY_STATE_DONE 2
+
+#define ENEMY_MODEL_ARWING 0
+#define ENEMY_MODEL_BANDIT 1
+#define ENEMY_MODEL_GRANGA 2
+#define ENEMY_MODEL_INVADER 3
+#define NUM_ENEMY_MODELS 4
+
+#define ENEMY_PROJECTILE_SPEED 0.3
+#define ENEMY_PROJECTILE_TTL 300
+#define ENEMY_SHOOT_CHANCE 0.003
+
+struct EnemyProjectile {
+    glm::vec3 position;
+    glm::vec3 velocity;
+    int ttl;
+
+    EnemyProjectile(glm::vec3 pos, glm::vec3 vel)
+        : position(pos), velocity(vel), ttl(ENEMY_PROJECTILE_TTL) {}
+
+    void advance() {
+        position += velocity;
+        ttl--;
+    }
+};
 
 struct Particle {
     Particle(glm::vec3 pos, glm::vec3 vel);
@@ -64,7 +88,7 @@ struct EnemyUnit {
     double travelDistance;
 
     int state = ENEMY_STATE_NORMAL;
-
+    int modelType = ENEMY_MODEL_ARWING;
 
     std::vector<std::shared_ptr<Particle>> particles;
     unsigned particleVAO;
@@ -75,6 +99,12 @@ struct EnemyUnit {
     void updateParticles();
 };
 
+struct EnemyModel {
+    std::vector<std::shared_ptr<Shape>> shapes;
+    glm::vec3 trans;
+    float scale;
+};
+
 class Enemy {
 public:
     Enemy(std::string resourceDir);
@@ -82,23 +112,35 @@ public:
     void draw(const std::shared_ptr<Program> prog, const std::shared_ptr<Program> explosionProg,
               const std::shared_ptr<MatrixStack> P, const std::shared_ptr<MatrixStack> M,
               const glm::mat4& V, const glm::vec3& lightPos);
+    void drawProjectiles(const std::shared_ptr<Program> prog, const std::shared_ptr<MatrixStack> P,
+                         const std::shared_ptr<MatrixStack> M, const glm::mat4& V, const glm::vec3& lightPos);
 
-    void spawnEnemy();
+    void spawnEnemy(float speedScale = 1.0f);
 
     unsigned checkCollisions(glm::vec3 position, float radius);
 
     std::vector<std::shared_ptr<EnemyUnit>> checkProjectile(glm::vec3 position, float radius);
 
-    void advance();
+    void advance(glm::vec3 playerPos);
+
+    void clearAll();
+
+    bool checkEnemyProjectileCollision(glm::vec3 position, float radius);
+
+    std::vector<EnemyProjectile> enemyProjectiles;
 
 private:
     Enemy(Enemy const &a) = delete;
 
     std::vector<std::shared_ptr<EnemyUnit>> enemies;
 
-    std::vector<std::shared_ptr<Shape>> shapes;
-    glm::vec3 trans;
-    float scale;
+    EnemyModel models[NUM_ENEMY_MODELS];
+
+    bool loadModel(const std::string& objPath, const std::string& basePath, EnemyModel& model);
+    void measureModel(EnemyModel& model);
+
+    // Projectile shapes (reuse arwing projectile for enemy shots)
+    std::vector<std::shared_ptr<Shape>> projectileShapes;
 };
 
 #endif // FINAL_471_ENEMY_H_INCLUDED

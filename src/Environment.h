@@ -28,10 +28,21 @@ public:
               const std::shared_ptr<MatrixStack> M, const glm::mat4& V, const glm::vec3& lightPos);
 
     // Code to advance environment. Called on each iteration of the game loop
-    void advance();
+    void advance(float speedMultiplier = 1.0f);
 
-    //bool checkGroundCollision(glm::vec3 position, double radius);
+    bool checkGroundCollision(glm::vec3 position, double radius);
 
+    // Bonus rings
+    struct Ring {
+        glm::vec3 position;
+        float rotation;
+        bool collected;
+    };
+    std::vector<Ring> rings;
+    void spawnRing();
+    bool checkRingCollision(glm::vec3 playerPos, float radius);
+    void drawRings(const std::shared_ptr<Program> colorProg, const std::shared_ptr<MatrixStack> P,
+                   const std::shared_ptr<MatrixStack> M, const glm::mat4& V);
 
 private:
     Environment(Environment const &a) = delete;
@@ -39,7 +50,11 @@ private:
     std::vector<std::shared_ptr<Shape>> groundShapes;
     std::vector<std::shared_ptr<Shape>> skyShapes;
     std::map<std::string, unsigned> textures;
-    //float groundHeight = -(AIRSPACE_HEIGHT+1);
+    float groundHeight = -(AIRSPACE_HEIGHT+2);
+
+    // Ring geometry
+    std::shared_ptr<vao_t> ringVAO;
+    void initRingGeometry();
 
 };
 
