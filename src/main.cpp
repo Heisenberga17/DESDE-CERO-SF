@@ -79,7 +79,144 @@ public:
 	// Light
 	glm::vec3 lightPos = {-10.0, 15.0, 10.0};
 
+	// Gamepad
+	GLFWgamepadstate gamepadState = {};
+	GLFWgamepadstate prevGamepadState = {};
+	bool gamepadConnected = false;
+	// Track what the gamepad is actively controlling (so we don't override keyboard)
+	bool gpYawLeft = false, gpYawRight = false;
+	bool gpPitchUp = false, gpPitchDown = false;
+	bool gpRollLeft = false, gpRollRight = false;
+	bool gpBoosting = false, gpBraking = false;
 
+	void pollGamepad()
+	{
+		if (!glfwJoystickPresent(GLFW_JOYSTICK_1) || !glfwJoystickIsGamepad(GLFW_JOYSTICK_1)) {
+			if (gamepadConnected) {
+				gamepadConnected = false;
+			}
+			return;
+		}
+
+		if (!gamepadConnected) {
+			gamepadConnected = true;
+			std::cout << "Gamepad connected: " << glfwGetGamepadName(GLFW_JOYSTICK_1) << std::endl;
+		}
+
+		prevGamepadState = gamepadState;
+		glfwGetGamepadState(GLFW_JOYSTICK_1, &gamepadState);
+
+		const float DEADZONE = 0.15f;
+
+		// --- Pause (Options / Start button) ---
+		if (gamepadState.buttons[GLFW_GAMEPAD_BUTTON_START] == GLFW_PRESS &&
+			prevGamepadState.buttons[GLFW_GAMEPAD_BUTTON_START] != GLFW_PRESS) {
+			paused = !paused;
+		}
+
+		// --- Restart (Circle button) ---
+		if (gamepadState.buttons[GLFW_GAMEPAD_BUTTON_B] == GLFW_PRESS &&
+			prevGamepadState.buttons[GLFW_GAMEPAD_BUTTON_B] != GLFW_PRESS &&
+			gameState == GAME_OVER) {
+			restartGame();
+		}
+
+		if (gameState == GAME_OVER) return;
+
+		// --- Left Stick X axis → Yaw (only send on transitions) ---
+		float lx = gamepadState.axes[GLFW_GAMEPAD_AXIS_LEFT_X];
+		bool wantYawLeft = lx < -DEADZONE;
+		bool wantYawRight = lx > DEADZONE;
+
+		if (wantYawLeft && !gpYawLeft) {
+			arwing->yawLeft(KEY_PRESS);
+			gpYawLeft = true;
+		} else if (!wantYawLeft && gpYawLeft) {
+			arwing->yawLeft(KEY_RELEASE);
+			gpYawLeft = false;
+		}
+		if (wantYawRight && !gpYawRight) {
+			arwing->yawRight(KEY_PRESS);
+			gpYawRight = true;
+		} else if (!wantYawRight && gpYawRight) {
+			arwing->yawRight(KEY_RELEASE);
+			gpYawRight = false;
+		}
+
+		// --- Left Stick Y axis → Pitch (only send on transitions) ---
+		float ly = gamepadState.axes[GLFW_GAMEPAD_AXIS_LEFT_Y];
+		bool wantPitchDown = ly < -DEADZONE;
+		bool wantPitchUp = ly > DEADZONE;
+
+		if (wantPitchDown && !gpPitchDown) {
+			arwing->pitchDown(KEY_PRESS);
+			gpPitchDown = true;
+		} else if (!wantPitchDown && gpPitchDown) {
+			arwing->pitchDown(KEY_RELEASE);
+			gpPitchDown = false;
+		}
+		if (wantPitchUp && !gpPitchUp) {
+			arwing->pitchUp(KEY_PRESS);
+			gpPitchUp = true;
+		} else if (!wantPitchUp && gpPitchUp) {
+			arwing->pitchUp(KEY_RELEASE);
+			gpPitchUp = false;
+		}
+
+		// --- Shoot (Cross / X button or R1) ---
+		if ((gamepadState.buttons[GLFW_GAMEPAD_BUTTON_A] == GLFW_PRESS &&
+			 prevGamepadState.buttons[GLFW_GAMEPAD_BUTTON_A] != GLFW_PRESS) ||
+			(gamepadState.buttons[GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER] == GLFW_PRESS &&
+			 prevGamepadState.buttons[GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER] != GLFW_PRESS)) {
+			arwing->shoot();
+		}
+
+		// --- Barrel Roll (L1) ---
+		if (gamepadState.buttons[GLFW_GAMEPAD_BUTTON_LEFT_BUMPER] == GLFW_PRESS &&
+			prevGamepadState.buttons[GLFW_GAMEPAD_BUTTON_LEFT_BUMPER] != GLFW_PRESS) {
+			arwing->barrelRoll();
+		}
+
+		// --- Boost (R2) / Brake (L2) — only change on transitions ---
+		float r2 = gamepadState.axes[GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER];
+		float l2 = gamepadState.axes[GLFW_GAMEPAD_AXIS_LEFT_TRIGGER];
+		bool wantBoost = r2 > 0.5f;
+		bool wantBrake = l2 > 0.5f;
+
+		if (wantBoost && !gpBoosting) {
+			arwing->speedMultiplier = 2.0f;
+			gpBoosting = true;
+		} else if (!wantBoost && gpBoosting) {
+			arwing->speedMultiplier = 1.0f;
+			gpBoosting = false;
+		}
+		if (wantBrake && !gpBraking) {
+			arwing->speedMultiplier = 0.3f;
+			gpBraking = true;
+		} else if (!wantBrake && gpBraking) {
+			arwing->speedMultiplier = 1.0f;
+			gpBraking = false;
+		}
+
+		// --- D-pad Roll (only send on transitions) ---
+		bool wantRollLeft = gamepadState.buttons[GLFW_GAMEPAD_BUTTON_DPAD_LEFT] == GLFW_PRESS;
+		bool wantRollRight = gamepadState.buttons[GLFW_GAMEPAD_BUTTON_DPAD_RIGHT] == GLFW_PRESS;
+
+		if (wantRollLeft && !gpRollLeft) {
+			arwing->rollLeft(KEY_PRESS);
+			gpRollLeft = true;
+		} else if (!wantRollLeft && gpRollLeft) {
+			arwing->rollLeft(KEY_RELEASE);
+			gpRollLeft = false;
+		}
+		if (wantRollRight && !gpRollRight) {
+			arwing->rollRight(KEY_PRESS);
+			gpRollRight = true;
+		} else if (!wantRollRight && gpRollRight) {
+			arwing->rollRight(KEY_RELEASE);
+			gpRollRight = false;
+		}
+	}
 
 	void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
 	{
@@ -358,6 +495,8 @@ public:
 
 	void render()
 	{
+		pollGamepad();
+
 		int width, height;
 		glfwGetFramebufferSize(windowManager->getHandle(), &width, &height);
 		float aspect = width/(float)height;
