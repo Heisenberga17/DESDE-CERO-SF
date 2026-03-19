@@ -422,7 +422,7 @@ public:
 	void initProg(const std::string& resourceDir)
 	{
 		GLSL::checkVersion();
-		glClearColor(0.55f, 0.2f, 0.7f, 0.0f);
+		glClearColor(0.29f, 0.14f, 0.47f, 0.0f);
 		glEnable(GL_DEPTH_TEST);
 		glBlendColor(1,1,1,1);
 
