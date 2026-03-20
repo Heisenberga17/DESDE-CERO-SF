@@ -17,6 +17,17 @@ This is a 3D space combat game inspired by Star Fox 64 for the Nintendo 64. You 
 - A scrolling environment with sky and water
 - PS5 DualSense controller support
 - Game Over and restart functionality
+- **Play in your browser** — no install needed (WebAssembly build)
+
+---
+
+## Play in Browser
+
+The game runs in any modern browser via WebAssembly. No download or install required.
+
+**[Play Star Fox 64 in your browser](https://starfox64.pages.dev)**
+
+Requires a browser with WebGL 2 support (Chrome, Firefox, Edge, Safari 15+).
 
 ---
 
@@ -448,6 +459,47 @@ make -j$(nproc)
 
 ---
 
+## Building the Web Version
+
+The game can be compiled to WebAssembly using Emscripten, then hosted on any static site (Cloudflare Pages, GitHub Pages, etc.).
+
+### Prerequisites
+
+Install the [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html):
+
+```bash
+git clone https://github.com/emscripten-core/emsdk.git
+cd emsdk
+./emsdk install latest
+./emsdk activate latest
+source emsdk_env.sh
+```
+
+You also need GLM headers installed (e.g., `brew install glm` on macOS).
+
+### Build
+
+```bash
+cd web
+./build.sh
+```
+
+Output goes to `web/dist/`. Test locally:
+
+```bash
+cd web/dist
+python3 -m http.server 8080
+# Open http://localhost:8080
+```
+
+### Deploy to Cloudflare Pages
+
+```bash
+npx wrangler pages deploy web/dist --project-name=starfox64
+```
+
+---
+
 ## Project Structure
 
 ```
@@ -466,7 +518,15 @@ DESDE-CERO-SF/
 ├── shaders/                # GLSL vertex and fragment shaders
 ├── resources/              # 3D models (.obj) and textures
 ├── ext/                    # External dependencies (GLAD)
-└── CMakeLists.txt          # Build configuration
+├── web/                    # WebAssembly/Emscripten build
+│   ├── main_web.cpp        # Web entry point (wraps original main)
+│   ├── CMakeLists.txt      # Emscripten build config
+│   ├── shell.html          # HTML template
+│   ├── build.sh            # Build script
+│   ├── shaders/            # WebGL 2 (GLSL ES 3.0) shaders
+│   ├── include/glad/       # GLAD shim for Emscripten
+│   └── _headers            # Cloudflare Pages COOP/COEP headers
+└── CMakeLists.txt          # Native build configuration
 ```
 
 ## Credits

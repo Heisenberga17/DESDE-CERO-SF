@@ -2,3 +2,5 @@
 build/**
 .DS_store
 .vscode/**
+web/build/**
+web/dist/**
