@@ -71,7 +71,7 @@ var ENVIRONMENT_IS_SHELL = !ENVIRONMENT_IS_WEB && !ENVIRONMENT_IS_NODE && !ENVIR
 
 // --pre-jses are emitted after the Module integration code, so that they can
 // refer to Module (if they choose; they can also define Module)
-// include: /var/folders/xg/53smgqj50433fq5n3kkkkx1c0000gn/T/tmpdxyz9a1h.js
+// include: /var/folders/xg/53smgqj50433fq5n3kkkkx1c0000gn/T/tmpdjs_ziin.js
 
   if (!Module['expectedDataFileDownloads']) Module['expectedDataFileDownloads'] = 0;
   Module['expectedDataFileDownloads']++;
@@ -208,21 +208,21 @@ Module['FS_createPath']("/", "shaders", true, true);
 
   })();
 
-// end include: /var/folders/xg/53smgqj50433fq5n3kkkkx1c0000gn/T/tmpdxyz9a1h.js
-// include: /var/folders/xg/53smgqj50433fq5n3kkkkx1c0000gn/T/tmpwjcuz58t.js
+// end include: /var/folders/xg/53smgqj50433fq5n3kkkkx1c0000gn/T/tmpdjs_ziin.js
+// include: /var/folders/xg/53smgqj50433fq5n3kkkkx1c0000gn/T/tmp2lkv494_.js
 
     // All the pre-js content up to here must remain later on, we need to run
     // it.
     if ((typeof ENVIRONMENT_IS_WASM_WORKER != 'undefined' && ENVIRONMENT_IS_WASM_WORKER) || (typeof ENVIRONMENT_IS_PTHREAD != 'undefined' && ENVIRONMENT_IS_PTHREAD) || (typeof ENVIRONMENT_IS_AUDIO_WORKLET != 'undefined' && ENVIRONMENT_IS_AUDIO_WORKLET)) Module['preRun'] = [];
     var necessaryPreJSTasks = Module['preRun'].slice();
-  // end include: /var/folders/xg/53smgqj50433fq5n3kkkkx1c0000gn/T/tmpwjcuz58t.js
-// include: /var/folders/xg/53smgqj50433fq5n3kkkkx1c0000gn/T/tmp5h_6lhjp.js
+  // end include: /var/folders/xg/53smgqj50433fq5n3kkkkx1c0000gn/T/tmp2lkv494_.js
+// include: /var/folders/xg/53smgqj50433fq5n3kkkkx1c0000gn/T/tmpmmhw_m8m.js
 
     if (!Module['preRun']) throw 'Module.preRun should exist because file support used it; did a pre-js delete it?';
     necessaryPreJSTasks.forEach((task) => {
       if (Module['preRun'].indexOf(task) < 0) throw 'All preRun tasks that exist before user pre-js code should remain after; did you replace Module or modify Module.preRun?';
     });
-  // end include: /var/folders/xg/53smgqj50433fq5n3kkkkx1c0000gn/T/tmp5h_6lhjp.js
+  // end include: /var/folders/xg/53smgqj50433fq5n3kkkkx1c0000gn/T/tmpmmhw_m8m.js
 
 
 var arguments_ = [];
@@ -7461,14 +7461,6 @@ var stringToUTF8Array = (str, heap, outIdx, maxBytesToWrite) => {
       return 1; // GL_TRUE
     };
 
-  var _glfwJoystickIsGamepad = (jid) => abort("glfwJoystickIsGamepad not implemented");
-
-  var _glfwJoystickPresent = (joy) => {
-      GLFW.refreshJoysticks();
-  
-      return GLFW.joys[joy] !== undefined;
-    };
-
   var _glfwMakeContextCurrent = (winid) => 0;
 
   var _glfwPollEvents = () => 0;
@@ -8048,6 +8040,10 @@ function checkIncomingModuleAPI() {
   ignoredModuleProp('onFree');
   ignoredModuleProp('onSbrkGrow');
 }
+function js_joystickPresent(jid) { var gamepads = navigator.getGamepads ? navigator.getGamepads() : []; var gp = gamepads[jid]; return (gp && gp.connected) ? 1 : 0; }
+function js_joystickIsGamepad(jid) { var gamepads = navigator.getGamepads ? navigator.getGamepads() : []; var gp = gamepads[jid]; return (gp && gp.connected && gp.mapping === "standard") ? 1 : 0; }
+function js_getGamepadState(jid,buttons,axes) { var gamepads = navigator.getGamepads ? navigator.getGamepads() : []; var gp = gamepads[jid]; if (!gp || !gp.connected || gp.mapping !== "standard") return 0; var nb = Math.min(gp.buttons.length, 15); for (var i = 0; i < nb; i++) { HEAPU8[buttons + i] = gp.buttons[i].pressed ? 1 : 0; } for (var i = nb; i < 15; i++) { HEAPU8[buttons + i] = 0; } var na = Math.min(gp.axes.length, 4); for (var i = 0; i < na; i++) { HEAPF32[(axes >> 2) + i] = gp.axes[i]; } for (var i = na; i < 4; i++) { HEAPF32[(axes >> 2) + i] = 0.0; } HEAPF32[(axes >> 2) + 4] = gp.buttons.length > 6 ? (gp.buttons[6].value * 2.0 - 1.0) : -1.0; HEAPF32[(axes >> 2) + 5] = gp.buttons.length > 7 ? (gp.buttons[7].value * 2.0 - 1.0) : -1.0; return 1; }
+function js_getGamepadName(jid,buf,bufLen) { var gamepads = navigator.getGamepads ? navigator.getGamepads() : []; var gp = gamepads[jid]; var name = (gp && gp.id) ? gp.id : ""; stringToUTF8(name, buf, bufLen); }
 
 // Imports from the Wasm binary.
 var _free = makeInvalidEarlyAccess('_free');
@@ -8234,10 +8230,6 @@ var wasmImports = {
   /** @export */
   glfwInit: _glfwInit,
   /** @export */
-  glfwJoystickIsGamepad: _glfwJoystickIsGamepad,
-  /** @export */
-  glfwJoystickPresent: _glfwJoystickPresent,
-  /** @export */
   glfwMakeContextCurrent: _glfwMakeContextCurrent,
   /** @export */
   glfwPollEvents: _glfwPollEvents,
@@ -8262,7 +8254,15 @@ var wasmImports = {
   /** @export */
   glfwTerminate: _glfwTerminate,
   /** @export */
-  glfwWindowHint: _glfwWindowHint
+  glfwWindowHint: _glfwWindowHint,
+  /** @export */
+  js_getGamepadName,
+  /** @export */
+  js_getGamepadState,
+  /** @export */
+  js_joystickIsGamepad,
+  /** @export */
+  js_joystickPresent
 };
 
 
