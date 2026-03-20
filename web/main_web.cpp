@@ -49,13 +49,13 @@ EM_JS(int, js_joystickPresent, (int jid), {
 EM_JS(int, js_joystickIsGamepad, (int jid), {
     var gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
     var gp = gamepads[jid];
-    return (gp && gp.connected && gp.mapping === "standard") ? 1 : 0;
+    return (gp && gp.connected) ? 1 : 0;
 });
 
 EM_JS(int, js_getGamepadState, (int jid, unsigned char* buttons, float* axes), {
     var gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
     var gp = gamepads[jid];
-    if (!gp || !gp.connected || gp.mapping !== "standard") return 0;
+    if (!gp || !gp.connected) return 0;
 
     // Standard gamepad mapping matches GLFW button order for the first 15.
     var nb = Math.min(gp.buttons.length, 15);
@@ -123,8 +123,25 @@ const char* web_glfwGetGamepadName(int jid) {
 static Application* g_application = nullptr;
 static WindowManager* g_windowManager = nullptr;
 
+static double g_lastTime = 0.0;
+static double g_accumulator = 0.0;
+static const double FIXED_DT = 1.0 / 60.0;
+static const double MAX_FRAME_TIME = 0.25;
+
 void main_loop() {
-    g_application->render();
+    double now = glfwGetTime();
+    double frameTime = now - g_lastTime;
+    g_lastTime = now;
+
+    if (frameTime > MAX_FRAME_TIME) frameTime = MAX_FRAME_TIME;
+
+    g_accumulator += frameTime;
+
+    while (g_accumulator >= FIXED_DT) {
+        g_application->render();
+        g_accumulator -= FIXED_DT;
+    }
+
     glfwSwapBuffers(g_windowManager->getHandle());
     glfwPollEvents();
 }
@@ -147,6 +164,8 @@ int main(int argc, char** argv) {
     g_application->initGame();
 
     srand(static_cast<unsigned>(time(0)));
+
+    g_lastTime = glfwGetTime();
 
     // 0 = use requestAnimationFrame, 1 = simulate infinite loop
     emscripten_set_main_loop(main_loop, 0, 1);
